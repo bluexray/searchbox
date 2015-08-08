@@ -21,9 +21,9 @@ namespace SearchCommon
         private static string host = ConfigurationManager.AppSettings["SearchBox"].ToString();
 
         /// <summary>
-        /// Like a database name
+        /// Like a database name (fake indexname)
         /// </summary>
-        private static string IndexName = "products";
+        private static string IndexName = "testmall";
 
         /// <summary>
         /// Defaults for paging
@@ -134,12 +134,10 @@ namespace SearchCommon
         }
 
 
+        //根据条件搜索
         public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, int? startprice=null, int? endprice=null, int brandid=0, int cateid=0, int page = 0, int _pageSize = 50)
         {
             var client = GetClient();
-
-
-
 
             var result = client.Search<ProductInfoExt>(s => s
                                 .Index(IndexName)
@@ -159,18 +157,17 @@ namespace SearchCommon
                                     if (brandid!=0)
                                     {
 
-                                        query &= q.Term("BrandId", brandid);
+                                        query &= q.Term("brandid", brandid);
                                     }
 
                                     if (cateid!=0)
                                     {
-                                        query &= q.Term("Cateid", cateid);
+                                        query &= q.Term("cateid", cateid);
                                     }
 
                                     query &= q.QueryString(qs => qs.Query(keyword));
                                     return query;        
-                                            })
-                                            );
+                                            }));
             return result.Documents;
         }
 
@@ -192,6 +189,71 @@ namespace SearchCommon
         }
 
 
+        //获取分类
+        public static IEnumerable<int> SearchCateIds(string keyword,int brandid=0, int? startprice = null, int? endprice = null)
+        {
+            var client = GetClient();
 
+            var result = client.Search<ProductInfoExt>(s => s
+                         .Index(IndexName)
+                         .AllTypes()
+                         .Analyzer("ik")
+                         .Source(f => f.Include("cateid"))
+                         .Query(q => {
+                             QueryContainer query = null;
+                             if (startprice != null)
+                             {
+                                 query &= q.Range(m => m
+                                           .OnField(f => f.Shopprice)
+                                           .GreaterOrEquals(startprice)
+                                           .Lower(endprice));
+                             }
+
+                             if (brandid != 0)
+                             {
+
+                                 query &= q.Term("brandid", brandid);
+                             }
+
+                             query &= q.QueryString(qs => qs.Query(keyword));
+                             return query;
+                             }));
+
+            return result.Documents.Select(p=>p.CateId);
+        }
+
+
+        //获取品牌
+        public static IEnumerable<int> SearchBrands(string keyword, int cateid = 0, int? startprice = null, int? endprice = null)
+        {
+            var client = GetClient();
+
+            var result = client.Search<ProductInfoExt>(s => s
+                         .Index(IndexName)
+                         .AllTypes()
+                         .Analyzer("ik")
+                         .Source(f => f.Include("brandid"))
+                         .Query(q => {
+                             QueryContainer query = null;
+                             if (startprice != null)
+                             {
+                                 query &= q.Range(m => m
+                                           .OnField(f => f.Shopprice)
+                                           .GreaterOrEquals(startprice)
+                                           .Lower(endprice));
+                             }
+
+                             if (cateid != 0)
+                             {
+
+                                 query &= q.Term("cateid", cateid);
+                             }
+
+                             query &= q.QueryString(qs => qs.Query(keyword));
+                             return query;
+                         }));
+
+            return result.Documents.Select(p=>p.BrandId);
+        }
     }
 }
