@@ -135,9 +135,15 @@ namespace SearchCommon
 
 
         //根据条件搜索
-        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, int? startprice=null, int? endprice=null, int brandid=0, int cateid=0, int page = 0, int _pageSize = 50)
+        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, int? startprice = null, int? endprice = null, string [] brands=null, int cateid = 0, int page = 0, int _pageSize = 50)
         {
             var client = GetClient();
+
+            int[] numbers = { 4, 5, 6, 1, 2, 3, -2, -1, 0 };
+
+
+
+
 
             var result = client.Search<ProductInfoExt>(s => s
                                 .Index(IndexName)
@@ -154,11 +160,22 @@ namespace SearchCommon
                                                   .GreaterOrEquals(startprice)
                                                   .Lower(endprice));
                                     }
-                                    if (brandid!=0)
-                                    {
 
-                                        query &= q.Term("brandid", brandid);
+                                    
+                                    if (brands!=null&&brands.Length>0)
+                                    {
+                                        foreach (var item in numbers)
+                                        {
+                                            query = query || q.Term("brandid", item);
+                                        } 
                                     }
+
+
+                                    //if (brandid!=0)
+                                    //{
+
+                                    //    query &= q.Term("brandid", brandid);
+                                    //}
 
                                     if (cateid!=0)
                                     {
@@ -255,5 +272,61 @@ namespace SearchCommon
 
             return result.Documents.Select(p=>p.BrandId);
         }
+
+
+        //http://www.chepoo.com/elasticsearch-suggest-plugin-apply.html
+
+        public static List<string> SearchSuggest(string keyword)
+        {
+
+            var client = GetClient();
+
+
+            // depending on your map --> index --> query configuraion there are different methods to get suggestions:
+            //
+            // a.) my favourite
+            //
+            //SearchDescriptor<BlogArticle> descriptor = new SearchDescriptor<BlogArticle>();
+            //descriptor = descriptor.SuggestCompletion("suggest", c => c.OnField("title").Text(SearchTerm));
+
+            //var ... = GetClient().Search<BlogArticle>(s => descriptor);
+
+            // b.) common
+            //
+            var  r =GetClient().Suggest<ProductInfoExt>(s => s.Phrase("completion", f => f.OnField("name")
+                                                                                    .GramSize(1)
+                                                                                    .Size(5)
+                                                                                    .MaxErrors((decimal)0.5)
+                                                                                    .DirectGenerator(g => g.MinWordLength(3)
+                                                                                                            .OnField("name")
+                                                                                                            .SuggestMode(SuggestMode.Always))
+                                                                                    .Text(keyword)));
+
+            var list = new List<string>();
+
+
+            var sugg = r.Suggestions["completion"].First().Options;
+
+
+            if (sugg.Count()>0)
+            {
+                foreach (SuggestOption opt in sugg)
+                {
+                    list.Add(opt.Text);
+                }
+            }
+
+            return list;
+
+
+            //List<String> suggestions = new SuggestRequestBuilder()
+            //    .field("content")//查询field
+            //    .term(q)//提示关键字
+            //    .size(n)//返回结果数
+            //    .similarity(0.5f)//相似度
+            //    .execute().actionGet().suggestions();
+
+            //return null;
+        } 
     }
 }
