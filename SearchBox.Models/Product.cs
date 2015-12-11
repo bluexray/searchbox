@@ -427,6 +427,8 @@ namespace SearchBox.Models
 
         public string ExtInfoStr { set; get; }
 
+        public string CatePath { get; set; }
+
 
 
 

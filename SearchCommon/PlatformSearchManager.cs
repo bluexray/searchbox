@@ -23,7 +23,7 @@ namespace SearchCommon
         /// <summary>
         /// Like a database name (fake indexname)
         /// </summary>
-        private static string IndexName = "testmall";
+        private static string IndexName = "mall"; //aliax name
 
         /// <summary>
         /// Defaults for paging
@@ -71,10 +71,10 @@ namespace SearchCommon
 
 
 
-            var  setting = new UpdateSettingsDescriptor()
-                                                        .Analysis(p=>p
-                                                            .Analyzers(m=>m
-                                                                .Add("default",new CustomAnalyzer()
+            var setting = new UpdateSettingsDescriptor()
+                                                        .Analysis(p => p
+                                                            .Analyzers(m => m
+                                                                .Add("default", new CustomAnalyzer()
                                                                 {
                                                                     Tokenizer = "ik"
                                                                 })
@@ -112,7 +112,7 @@ namespace SearchCommon
             }
 
             var client = GetClient();
-            
+
             if (flags == 1)
             {
                 var result = client.Search<ProductInfoExt>(s => s
@@ -127,6 +127,7 @@ namespace SearchCommon
                 var result = client.Search<ProductInfoExt>(s => s
                                                     .Index(IndexName)
                                                     .AllTypes()
+                                                    .FacetTerm(t => t.OnField(f => f.SKUGid).Size(1))
                                                     .Query(q => q.QueryString(qs => qs.Query(keyword)))
                                                     );
                 return result.Documents;
@@ -135,11 +136,50 @@ namespace SearchCommon
 
 
         //根据条件搜索
-        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, int? startprice = null, int? endprice = null, string [] brands=null, int cateid = 0, int page = 0, int _pageSize = 50)
+        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null,int cateid = 0, int page = 0, int _pageSize = 50)
         {
             var client = GetClient();
 
-            int[] numbers = { 4, 5, 6, 1, 2, 3, -2, -1, 0 };
+            // int[] numbers = { 4, 5, 6, 1, 2, 3, -2, -1, 0 };
+
+
+            total = client.Count<ProductInfoExt>(s => s
+                                 .Index(IndexName)
+                                 .AllTypes()
+                                 .Analyzer("ik")
+                                 .Query(q =>
+                                 {
+                                     QueryContainer query = null;
+                                     if (startprice != null)
+                                     {
+                                         query &= q.Range(m => m
+                                                   .OnField(f => f.Shopprice)
+                                                   .GreaterOrEquals(startprice)
+                                                   .Lower(endprice));
+                                     }
+
+
+                                     if (brands != null && brands.Length > 0)
+                                     {
+                                         foreach (var item in brands)
+                                         {
+                                             query = query || q.Term("brandid", item);
+                                         }
+                                     }
+
+                                     if (catePath != null)
+                                     {
+                                         query &= q.Prefix("catePath", catePath + ",");
+                                     }
+
+                                     if (cateid != 0)
+                                     {
+                                         query &= q.Term("cateid", cateid);
+                                     }
+
+                                     query &= q.QueryString(qs => qs.Query(keyword));
+                                     return query;
+                                 })).Count;
 
 
 
@@ -151,9 +191,10 @@ namespace SearchCommon
                                 .Analyzer("ik")
                                 .From(page * _pageSize)
                                 .Size(_pageSize)
-                                .Query(q => { 
-                                        QueryContainer query = null;
-                                    if (startprice!=null)
+                                .Query(q =>
+                                {
+                                    QueryContainer query = null;
+                                    if (startprice != null)
                                     {
                                         query &= q.Range(m => m
                                                   .OnField(f => f.Shopprice)
@@ -161,43 +202,58 @@ namespace SearchCommon
                                                   .Lower(endprice));
                                     }
 
-                                    
-                                    if (brands!=null&&brands.Length>0)
+
+                                    if (brands != null && brands.Length > 0)
                                     {
-                                        foreach (var item in numbers)
+                                        foreach (var item in brands)
                                         {
                                             query = query || q.Term("brandid", item);
-                                        } 
+                                        }
                                     }
 
 
-                                    //if (brandid!=0)
-                                    //{
+                                    if (catePath != null)
+                                    {
+                                        query &= q.Prefix("catePath", catePath + ",");
+                                    }
 
-                                    //    query &= q.Term("brandid", brandid);
-                                    //}
 
-                                    if (cateid!=0)
+                                    if (cateid != 0)
                                     {
                                         query &= q.Term("cateid", cateid);
                                     }
 
                                     query &= q.QueryString(qs => qs.Query(keyword));
-                                    return query;        
-                                            }));
+
+                                    return query;
+                                }));
             return result.Documents;
+
+            //var list = new List<ProductInfoExt>();
+
+            //foreach (var item in result.Documents.GroupBy(s=>s.SKUGid))
+            //{
+            //    list.Add(item.First());
+            //}
+
+
+            //total = list.Count;
+
+            //var rs = list.Take(_pageSize).Skip(_pageSize * page).ToList();
+
+            //return rs;
         }
 
 
-        public static IEnumerable<ProductInfoExt> SearchProudct(string keyword, int page=0, int _pageSize=20)
+        public static IEnumerable<ProductInfoExt> SearchProudct(string keyword, int page = 0, int _pageSize = 20)
         {
             var client = GetClient();
 
             var result = client.Search<ProductInfoExt>(s => s
                 .Index(IndexName)
                 .AllTypes()
-                .Analyzer("ik")     
-                .From(page* _pageSize)
+                .Analyzer("ik")
+                .From(page * _pageSize)
                 .Size(_pageSize)
                 .Query(q => q.QueryString(qs => qs.Query(keyword))));
 
@@ -207,7 +263,7 @@ namespace SearchCommon
 
 
         //获取分类
-        public static IEnumerable<int> SearchCateIds(string keyword,int brandid=0, int? startprice = null, int? endprice = null)
+        public static IEnumerable<int> SearchCateIds(string keyword, string[] brandid, int? startprice = null, int? endprice = null,string catePath=null)
         {
             var client = GetClient();
 
@@ -216,7 +272,8 @@ namespace SearchCommon
                          .AllTypes()
                          .Analyzer("ik")
                          .Source(f => f.Include("cateid"))
-                         .Query(q => {
+                         .Query(q =>
+                         {
                              QueryContainer query = null;
                              if (startprice != null)
                              {
@@ -226,22 +283,30 @@ namespace SearchCommon
                                            .Lower(endprice));
                              }
 
-                             if (brandid != 0)
+                             if (brandid != null && brandid.Length > 0)
                              {
-
-                                 query &= q.Term("brandid", brandid);
+                                 foreach (var item in brandid)
+                                 {
+                                     query = query || q.Term("brandid", item);
+                                 }
                              }
+
+                             if (catePath != null)
+                             {
+                                 query &= q.Prefix("catePath", catePath + ",");
+                             }
+
 
                              query &= q.QueryString(qs => qs.Query(keyword));
                              return query;
-                             }));
+                         }));
 
-            return result.Documents.Select(p=>p.CateId);
+            return result.Documents.Select(p => p.CateId);
         }
 
 
         //获取品牌
-        public static IEnumerable<int> SearchBrands(string keyword, int cateid = 0, int? startprice = null, int? endprice = null)
+        public static IEnumerable<int> SearchBrands(string keyword, int cateid = 0, int? startprice = null, int? endprice = null,string catePath=null)
         {
             var client = GetClient();
 
@@ -250,7 +315,8 @@ namespace SearchCommon
                          .AllTypes()
                          .Analyzer("ik")
                          .Source(f => f.Include("brandid"))
-                         .Query(q => {
+                         .Query(q =>
+                         {
                              QueryContainer query = null;
                              if (startprice != null)
                              {
@@ -258,6 +324,12 @@ namespace SearchCommon
                                            .OnField(f => f.Shopprice)
                                            .GreaterOrEquals(startprice)
                                            .Lower(endprice));
+                             }
+
+                             if (catePath!=null)
+                             {
+                                 query &= q.Prefix("catePath", catePath + ",");
+
                              }
 
                              if (cateid != 0)
@@ -270,7 +342,7 @@ namespace SearchCommon
                              return query;
                          }));
 
-            return result.Documents.Select(p=>p.BrandId);
+            return result.Documents.Select(p => p.BrandId);
         }
 
 
@@ -293,7 +365,7 @@ namespace SearchCommon
 
             // b.) common
             //
-            var  r =GetClient().Suggest<ProductInfoExt>(s => s.Phrase("completion", f => f.OnField("name")
+            var r = GetClient().Suggest<ProductInfoExt>(s => s.Phrase("my-suggest", f => f.OnField("name")
                                                                                     .GramSize(1)
                                                                                     .Size(5)
                                                                                     .MaxErrors((decimal)0.5)
@@ -302,13 +374,23 @@ namespace SearchCommon
                                                                                                             .SuggestMode(SuggestMode.Always))
                                                                                     .Text(keyword)));
 
+
+            var rs = GetClient().Suggest<ProductInfoExt>(m => m.Term("suggest-test", q => q.OnField("name").Size(10).Text(keyword)));
+
+
+           
+
+
             var list = new List<string>();
 
 
-            var sugg = r.Suggestions["completion"].First().Options;
+            var gg = rs.Suggestions["suggest-test"].First().Options;
 
 
-            if (sugg.Count()>0)
+            var sugg = r.Suggestions["my-suggest"].First().Options;
+
+
+            if (sugg.Count() > 0)
             {
                 foreach (SuggestOption opt in sugg)
                 {
@@ -327,6 +409,6 @@ namespace SearchCommon
             //    .execute().actionGet().suggestions();
 
             //return null;
-        } 
+        }
     }
 }
