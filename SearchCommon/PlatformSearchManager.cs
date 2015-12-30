@@ -23,7 +23,7 @@ namespace SearchCommon
         /// <summary>
         /// Like a database name (fake indexname)
         /// </summary>
-        private static string IndexName = "mall"; //aliax name
+        private static string IndexName = ConfigurationManager.AppSettings["IndexName"].ToString(); //aliax name
 
         /// <summary>
         /// Defaults for paging
@@ -136,97 +136,154 @@ namespace SearchCommon
 
 
         //根据条件搜索
-        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null,int cateid = 0, int page = 0, int _pageSize = 50)
+        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr="")
         {
             var client = GetClient();
 
             // int[] numbers = { 4, 5, 6, 1, 2, 3, -2, -1, 0 };
 
 
-            total = client.Count<ProductInfoExt>(s => s
-                                 .Index(IndexName)
-                                 .AllTypes()
-                                 .Analyzer("ik")
-                                 .Query(q =>
-                                 {
-                                     QueryContainer query = null;
-                                     if (startprice != null)
-                                     {
-                                         query &= q.Range(m => m
-                                                   .OnField(f => f.Shopprice)
-                                                   .GreaterOrEquals(startprice)
-                                                   .Lower(endprice));
-                                     }
+            total = client.Count<ProductInfoExt>(s => 
+            {
+                var search = s.Index(IndexName)
+                    .AllTypes()
+                    .Analyzer("ik")
+                    .Query(q =>
+                    {
+                        QueryContainer query = null;
+                        if (startprice != null)
+                        {
+                            query &= q.Range(m => m
+                                        .OnField(f => f.Shopprice)
+                                        .GreaterOrEquals(startprice)
+                                        .Lower(endprice));
+                        }
 
 
-                                     if (brands != null && brands.Length > 0)
-                                     {
-                                         foreach (var item in brands)
-                                         {
-                                             query = query || q.Term("brandid", item);
-                                         }
-                                     }
-
-                                     if (catePath != null)
-                                     {
-                                         query &= q.Prefix("catePath", catePath + ",");
-                                     }
-
-                                     if (cateid != 0)
-                                     {
-                                         query &= q.Term("cateid", cateid);
-                                     }
-
-                                     query &= q.QueryString(qs => qs.Query(keyword));
-                                     return query;
-                                 })).Count;
+                        if (brands != null && brands.Length > 0)
+                        {
+                            foreach (var item in brands)
+                            {
+                                query = query || q.Term("brandid", item);
+                            }
+                        }
 
 
+                        if (catePath != null)
+                        {
+                            query &= q.Prefix("catePath", catePath);
+                            
+                        }
 
 
+                        //if (cateid != 0)
+                        //{
+                        //    query &= q.Term("cateid", cateid);
+                        //}
 
-            var result = client.Search<ProductInfoExt>(s => s
-                                .Index(IndexName)
-                                .AllTypes()
-                                .Analyzer("ik")
-                                .From(page * _pageSize)
-                                .Size(_pageSize)
-                                .Query(q =>
+                        if (OnlyStock == 1)
+                        {
+                            query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(FilterAttr))
+                        {
+                            foreach (string item in FilterAttr.Split('|'))
+                            {
+                                QueryContainer q1 = null;
+                                foreach (string attr in item.Split(','))
                                 {
-                                    QueryContainer query = null;
-                                    if (startprice != null)
-                                    {
-                                        query &= q.Range(m => m
-                                                  .OnField(f => f.Shopprice)
-                                                  .GreaterOrEquals(startprice)
-                                                  .Lower(endprice));
-                                    }
+                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) & q.Term("Attr", attr.Split('_')[1]));
+                                }
+                                query &= q1;
+                            }
+                        }
+
+                        query &= q.QueryString(qs => qs.Query(keyword));
+
+                        return query;
+                    });
+                return search;
+            }).Count;
 
 
-                                    if (brands != null && brands.Length > 0)
-                                    {
-                                        foreach (var item in brands)
-                                        {
-                                            query = query || q.Term("brandid", item);
-                                        }
-                                    }
 
 
-                                    if (catePath != null)
-                                    {
-                                        query &= q.Prefix("catePath", catePath + ",");
-                                    }
+
+            var result = client.Search<ProductInfoExt>(s =>
+            {
+                var search = s.Index(IndexName)
+                    .AllTypes()
+                    .Analyzer("ik")
+                    .Query(q =>
+                    {
+                        QueryContainer query = null;
+                        if (startprice != null)
+                        {
+                            query &= q.Range(m => m
+                                        .OnField(f => f.Shopprice)
+                                        .GreaterOrEquals(startprice)
+                                        .Lower(endprice));
+                        }
 
 
-                                    if (cateid != 0)
-                                    {
-                                        query &= q.Term("cateid", cateid);
-                                    }
+                        if (brands != null && brands.Length > 0)
+                        {
+                            foreach (var item in brands)
+                            {
+                                query = query || q.Term("brandid", item);
+                            }
+                        }
 
-                                    query &= q.QueryString(qs => qs.Query(keyword));
 
-                                    return query;
-                                }));
+                        if (catePath != null)
+                        {
+                            query &= q.Prefix("catePath", catePath);
+                        }
+
+
+                        //if (cateid != 0)
+                        //{
+                        //    query &= q.Term("cateid", cateid);
+                        //}
+
+                        if (OnlyStock == 1)
+                        {
+                            query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+                        }
+                        if (!string.IsNullOrWhiteSpace(FilterAttr))
+                        {
+                            foreach (string item in FilterAttr.Split('|'))
+                            {
+                                QueryContainer q1 = null;
+                                foreach (string attr in item.Split(','))
+                                {
+                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) & q.Term("Attr", attr.Split('_')[1]));
+                                }
+                                query &= q1;
+                            }
+                        }
+                        query &= q.QueryString(qs => qs.Query(keyword));
+
+                        return query;
+                    });
+
+                //分页
+                search = search.From((page-1) * _pageSize).Size(_pageSize);
+                //排序
+                if (!string.IsNullOrWhiteSpace(SortDirection) && !string.IsNullOrWhiteSpace(SortColumn))
+                {
+                    if (SortDirection == "ASC")
+                    {
+                        search = search.SortAscending(SortColumn);
+                    }
+                    else
+                    {
+                        search = search.SortDescending(SortColumn);
+                    }
+                }
+                return search;
+            });
             return result.Documents;
 
             //var list = new List<ProductInfoExt>();
@@ -263,7 +320,7 @@ namespace SearchCommon
 
 
         //获取分类
-        public static IEnumerable<int> SearchCateIds(string keyword, string[] brandid, int? startprice = null, int? endprice = null,string catePath=null)
+        public static IEnumerable<int> SearchCateIds(string keyword, string[] brands, int? startprice = null, int? endprice = null, string catePath = null, int OnlyStock=0)
         {
             var client = GetClient();
 
@@ -272,41 +329,48 @@ namespace SearchCommon
                          .AllTypes()
                          .Analyzer("ik")
                          .Source(f => f.Include("cateid"))
+                         .Size(int.MaxValue)
                          .Query(q =>
                          {
                              QueryContainer query = null;
                              if (startprice != null)
                              {
                                  query &= q.Range(m => m
-                                           .OnField(f => f.Shopprice)
-                                           .GreaterOrEquals(startprice)
-                                           .Lower(endprice));
+                                             .OnField(f => f.Shopprice)
+                                             .GreaterOrEquals(startprice)
+                                             .Lower(endprice));
                              }
 
-                             if (brandid != null && brandid.Length > 0)
+
+                             if (brands != null && brands.Length > 0)
                              {
-                                 foreach (var item in brandid)
+                                 foreach (var item in brands)
                                  {
                                      query = query || q.Term("brandid", item);
                                  }
                              }
 
+
                              if (catePath != null)
                              {
-                                 query &= q.Prefix("catePath", catePath + ",");
+                                 query &= q.Prefix("catePath", catePath);
                              }
 
+                             if (OnlyStock == 1)
+                             {
+                                 query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+                             }
 
                              query &= q.QueryString(qs => qs.Query(keyword));
+
                              return query;
                          }));
-
-            return result.Documents.Select(p => p.CateId);
+            return result.Documents.Select(p => p.CateId).Distinct();
         }
 
 
         //获取品牌
-        public static IEnumerable<int> SearchBrands(string keyword, int cateid = 0, int? startprice = null, int? endprice = null,string catePath=null)
+        public static IEnumerable<int> SearchBrands(string keyword, int? startprice = null, int? endprice = null, string catePath = null, int OnlyStock=0)
         {
             var client = GetClient();
 
@@ -315,6 +379,7 @@ namespace SearchCommon
                          .AllTypes()
                          .Analyzer("ik")
                          .Source(f => f.Include("brandid"))
+                         .Size(int.MaxValue)
                          .Query(q =>
                          {
                              QueryContainer query = null;
@@ -328,22 +393,22 @@ namespace SearchCommon
 
                              if (catePath!=null)
                              {
-                                 query &= q.Prefix("catePath", catePath + ",");
+                                 query &= q.Prefix("catePath", catePath);
 
                              }
 
-                             if (cateid != 0)
+                             if (OnlyStock == 1)
                              {
-
-                                 query &= q.Term("cateid", cateid);
+                                 query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
                              }
 
                              query &= q.QueryString(qs => qs.Query(keyword));
                              return query;
                          }));
 
-            return result.Documents.Select(p => p.BrandId);
+            return result.Documents.Select(p => p.BrandId).Distinct();
         }
+
 
 
         //http://www.chepoo.com/elasticsearch-suggest-plugin-apply.html

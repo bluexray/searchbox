@@ -429,7 +429,7 @@ namespace SearchBox.Models
 
         public string CatePath { get; set; }
 
-
+        public string Attr { get; set; }
 
 
     }
