@@ -26,6 +26,7 @@ namespace SearchBox.Controllers
                 }
 
                 long total = 0;
+                List<string> attrlist = new List<string>();
 
                 //return  PlatformSearchManager.SearchFulltext("电视", 0);
                 //return  PlatformSearchManager.SearchProudct("头层牛皮凉鞋", 1);
@@ -39,8 +40,9 @@ namespace SearchBox.Controllers
                 {
                     brandids = PlatformSearchManager.SearchBrands(keyword, startprice, endprice, catePath),
                     cateids = PlatformSearchManager.SearchCateIds(keyword, arry, startprice, endprice, catePath),
-                    list = PlatformSearchManager.SearchBySyntax(keyword, out total, startprice, endprice, arry, catePath, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr),
-                    total = total
+                    list = PlatformSearchManager.SearchBySyntax(keyword, out total, out attrlist, startprice, endprice, arry, catePath, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr),
+                    total = total,
+                    attrlist = attrlist
                 };
                 return rs;
             }

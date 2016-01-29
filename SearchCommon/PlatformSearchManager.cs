@@ -136,7 +136,7 @@ namespace SearchCommon
 
 
         //根据条件搜索
-        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr="")
+        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, out List<string> attrList, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr = "")
         {
             var client = GetClient();
 
@@ -176,6 +176,7 @@ namespace SearchCommon
                         }
 
 
+
                         //if (cateid != 0)
                         //{
                         //    query &= q.Term("cateid", cateid);
@@ -193,7 +194,7 @@ namespace SearchCommon
                                 QueryContainer q1 = null;
                                 foreach (string attr in item.Split(','))
                                 {
-                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) & q.Term("Attr", attr.Split('_')[1]));
+                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
                                 }
                                 query &= q1;
                             }
@@ -206,6 +207,70 @@ namespace SearchCommon
                 return search;
             }).Count;
 
+            attrList = client.Search<ProductInfoExt>(s =>
+            {
+                var search = s.Index(IndexName)
+                    .AllTypes()
+                    .Analyzer("ik")
+                    .Source(f => f.Include("Attr"))
+                    .Size(int.MaxValue)
+                    .Query(q =>
+                    {
+                        QueryContainer query = null;
+                        if (startprice != null)
+                        {
+                            query &= q.Range(m => m
+                                        .OnField(f => f.Shopprice)
+                                        .GreaterOrEquals(startprice)
+                                        .Lower(endprice));
+                        }
+
+
+                        if (brands != null && brands.Length > 0)
+                        {
+                            foreach (var item in brands)
+                            {
+                                query = query || q.Term("brandid", item);
+                            }
+                        }
+
+
+                        if (catePath != null)
+                        {
+                            query &= q.Prefix("catePath", catePath);
+
+                        }
+
+
+                        //if (cateid != 0)
+                        //{
+                        //    query &= q.Term("cateid", cateid);
+                        //}
+
+                        if (OnlyStock == 1)
+                        {
+                            query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(FilterAttr))
+                        {
+                            foreach (string item in FilterAttr.Split('|'))
+                            {
+                                QueryContainer q1 = null;
+                                foreach (string attr in item.Split(','))
+                                {
+                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
+                                }
+                                query &= q1;
+                            }
+                        }
+
+                        query &= q.QueryString(qs => qs.Query(keyword));
+
+                        return query;
+                    });
+                return search;
+            }).Documents.Select(a=>a.Attr).Distinct().SelectMany(a=>a.Split(',')).Distinct().Where(a=>!string.IsNullOrWhiteSpace(a)).ToList();
 
 
 
@@ -258,7 +323,7 @@ namespace SearchCommon
                                 QueryContainer q1 = null;
                                 foreach (string attr in item.Split(','))
                                 {
-                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) & q.Term("Attr", attr.Split('_')[1]));
+                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
                                 }
                                 query &= q1;
                             }
@@ -353,7 +418,7 @@ namespace SearchCommon
 
                              if (catePath != null)
                              {
-                                 query &= q.Prefix("catePath", catePath);
+                                 query &= q.Prefix("catePath", catePath.Split(',')[0]);
                              }
 
                              if (OnlyStock == 1)
