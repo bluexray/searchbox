@@ -136,7 +136,7 @@ namespace SearchCommon
 
 
         //根据条件搜索
-        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, out List<string> attrList, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr = "")
+        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, out List<string> attrList, int? startprice = null, int? endprice = null, string[] brands = null, string[] catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr = "")
         {
             var client = GetClient();
 
@@ -168,11 +168,18 @@ namespace SearchCommon
                             }
                         }
 
-
-                        if (catePath != null)
+                        if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
                         {
-                            query &= q.Prefix("catePath", catePath);
-                            
+                            QueryContainer q1 = null;
+                            foreach (var item in catePath)
+                            {
+                                if (!string.IsNullOrEmpty(item))
+                                {
+                                    q1 |= q.Prefix("catePath", item);
+
+                                }
+                            }
+                            query &= q1;
                         }
 
 
@@ -235,10 +242,18 @@ namespace SearchCommon
                         }
 
 
-                        if (catePath != null)
+                        if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
                         {
-                            query &= q.Prefix("catePath", catePath);
+                            QueryContainer q1 = null;
+                            foreach (var item in catePath)
+                            {
+                                if (!string.IsNullOrEmpty(item))
+                                {
+                                    q1 |= q.Prefix("catePath", item);
 
+                                }
+                            }
+                            query &= q1;
                         }
 
 
@@ -270,7 +285,7 @@ namespace SearchCommon
                         return query;
                     });
                 return search;
-            }).Documents.Select(a=>a.Attr).Distinct().SelectMany(a=>a.Split(',')).Distinct().Where(a=>!string.IsNullOrWhiteSpace(a)).ToList();
+            }).Documents.Where(a => !string.IsNullOrWhiteSpace(a.Attr)).Select(a => a.Attr).Distinct().SelectMany(a => a.Split(',')).Distinct().Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
 
 
 
@@ -301,9 +316,18 @@ namespace SearchCommon
                         }
 
 
-                        if (catePath != null)
+                        if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
                         {
-                            query &= q.Prefix("catePath", catePath);
+                            QueryContainer q1 = null;
+                            foreach (var item in catePath)
+                            {
+                                if (!string.IsNullOrEmpty(item))
+                                {
+                                    q1 |= q.Prefix("catePath", item);
+
+                                }
+                            }
+                            query &= q1;
                         }
 
 
@@ -385,7 +409,7 @@ namespace SearchCommon
 
 
         //获取分类
-        public static IEnumerable<int> SearchCateIds(string keyword, string[] brands, int? startprice = null, int? endprice = null, string catePath = null, int OnlyStock=0)
+        public static IEnumerable<int> SearchCateIds(string keyword, string[] brands, int? startprice = null, int? endprice = null, string[] catePath = null, int OnlyStock=0)
         {
             var client = GetClient();
 
@@ -415,10 +439,18 @@ namespace SearchCommon
                                  }
                              }
 
-
-                             if (catePath != null)
+                             if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
                              {
-                                 query &= q.Prefix("catePath", catePath.Split(',')[0]);
+                                 QueryContainer q1 = null;
+                                 foreach (var item in catePath)
+                                 {
+                                     if (!string.IsNullOrEmpty(item))
+                                     {
+                                         q1 |= q.Prefix("catePath", item.Split(',')[0]);
+
+                                     }
+                                 }
+                                 query &= q1;
                              }
 
                              if (OnlyStock == 1)
@@ -435,7 +467,7 @@ namespace SearchCommon
 
 
         //获取品牌
-        public static IEnumerable<int> SearchBrands(string keyword, int? startprice = null, int? endprice = null, string catePath = null, int OnlyStock=0)
+        public static IEnumerable<int> SearchBrands(string keyword, int? startprice = null, int? endprice = null, string[] catePath = null, int OnlyStock=0)
         {
             var client = GetClient();
 
@@ -456,10 +488,18 @@ namespace SearchCommon
                                            .Lower(endprice));
                              }
 
-                             if (catePath!=null)
+                             if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
                              {
-                                 query &= q.Prefix("catePath", catePath);
+                                 QueryContainer q1 = null;
+                                 foreach (var item in catePath)
+                                 {
+                                     if (!string.IsNullOrEmpty(item))
+                                     {
+                                         q1 |= q.Prefix("catePath", item);
 
+                                     }
+                                 }
+                                 query &= q1;
                              }
 
                              if (OnlyStock == 1)
