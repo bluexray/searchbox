@@ -25,6 +25,12 @@ namespace SearchBox.Controllers
                     arry = brands.Split(',');
                 }
 
+                string[] catepaths = null;
+                if (catePath != null)
+                {
+                    catepaths = catePath.Split('|');
+                }
+
                 long total = 0;
                 List<string> attrlist = new List<string>();
 
@@ -38,9 +44,9 @@ namespace SearchBox.Controllers
                 //SearchBySyntax(string keyword, out long total, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr="")
                 var rs = new
                 {
-                    brandids = PlatformSearchManager.SearchBrands(keyword, startprice, endprice, catePath),
-                    cateids = PlatformSearchManager.SearchCateIds(keyword, arry, startprice, endprice, catePath),
-                    list = PlatformSearchManager.SearchBySyntax(keyword, out total, out attrlist, startprice, endprice, arry, catePath, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr),
+                    brandids = PlatformSearchManager.SearchBrands(keyword, startprice, endprice, catepaths),
+                    cateids = PlatformSearchManager.SearchCateIds(keyword, arry, startprice, endprice, catepaths),
+                    list = PlatformSearchManager.SearchBySyntax(keyword, out total, out attrlist, startprice, endprice, arry, catepaths, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr),
                     total = total,
                     attrlist = attrlist
                 };
