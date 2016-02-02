@@ -4,6 +4,9 @@ using System.Runtime.Serialization;
 
 namespace SearchBox.Models
 {
+    /// <summary>
+    /// 商品部分信息类
+    /// </summary>
     public class PartProductInfo
     {
         private int _pid;//商品id
@@ -25,6 +28,8 @@ namespace SearchBox.Models
         private int _displayorder = 0;//商品排序
         private int _weight = 0;//商品重量
         private string _showimg = "";//商品展示图片
+        private string _mobileshowimg = "";//移动端商品展示图片
+        private string _colorimg = "";//商品颜色图片
         private int _salecount = 0;//销售数
         private int _visitcount = 0;//访问数
         private int _reviewcount = 0;//评价数
@@ -48,7 +53,7 @@ namespace SearchBox.Models
         /// </summary>
         public string PSN
         {
-            set { _psn = value.TrimEnd(); }
+            set { _psn = value; }
             get { return _psn; }
         }
         /// <summary>
@@ -110,7 +115,7 @@ namespace SearchBox.Models
         /// <summary>
         /// 商品商城价
         /// </summary>
-        public decimal Shopprice
+        public decimal ShopPrice
         {
             set { _shopprice = value; }
             get { return _shopprice; }
@@ -131,6 +136,22 @@ namespace SearchBox.Models
             set { _costprice = value; }
             get { return _costprice; }
         }
+        /// <summary>
+        /// 供货折扣
+        /// </summary>
+        public double SupplyDiscount { get; set; }
+        /// <summary>
+        /// 售卖折扣
+        /// </summary>
+        public double SaleDiscount { get; set; }
+        /// <summary>
+        /// 警戒折扣
+        /// </summary>
+        public double GuardDiscount { get; set; }
+        /// <summary>
+        /// 扣点
+        /// </summary>
+        public double CablePoint { get; set; }
         /// <summary>
         /// 0代表上架，1代表下架，2代表回收站
         /// </summary>
@@ -180,12 +201,28 @@ namespace SearchBox.Models
             get { return _weight; }
         }
         /// <summary>
-        /// 商品展示图片
+        /// 商品展示主图片
         /// </summary>
         public string ShowImg
         {
             set { _showimg = value; }
             get { return _showimg; }
+        }
+        /// <summary>
+        /// 移动端商品展示主图片
+        /// </summary>
+        public string MobileShowImg
+        {
+            set { _mobileshowimg = value; }
+            get { return _mobileshowimg; }
+        }
+        /// <summary>
+        /// 商品颜色图片
+        /// </summary>
+        public string ColorImg
+        {
+            set { _colorimg = value; }
+            get { return _colorimg; }
         }
         /// <summary>
         /// 销售数
@@ -274,10 +311,20 @@ namespace SearchBox.Models
     /// <summary>
     /// 商品信息类
     /// </summary>
-
-
     public class bma_products : PartProductInfo
     {
+        /// <summary>
+        /// 扣率
+        /// </summary>
+        public decimal BucklingRate { get; set; }
+        /// <summary>
+        /// 兑换积分值
+        /// </summary>
+        public decimal ExIntegral { get; set; }
+        /// <summary>
+        /// 是否可用积分兑换
+        /// </summary>
+        public int IsCanExchange { get; set; }
         /// <summary>
         /// 商品描述
         /// </summary>
@@ -304,21 +351,29 @@ namespace SearchBox.Models
             get;
         }
         /// <summary>
-        /// 返现比例
+        /// 副标题2
+        /// </summary>
+        public string Subhead2
+        {
+            set;
+            get;
+        }
+        /// <summary>
+        /// 返积分数
         /// </summary>
         public double CashBackPoint
         {
             set;
             get;
         }
-        /// <summary>
-        /// 佣金比例
-        /// </summary>
-        public double CommissionPoint
-        {
-            set;
-            get;
-        }
+        ///// <summary>
+        ///// 佣金比例
+        ///// </summary>
+        //public double CommissionPoint
+        //{
+        //    set;
+        //    get;
+        //}
         /// <summary>
         /// 商品多图片
         /// </summary>
@@ -374,6 +429,24 @@ namespace SearchBox.Models
             set { _tag = value; }
             get { return _tag; }
         }
+        private string _sizedesc = "";
+        /// <summary>
+        /// 商品尺码描述
+        /// </summary>
+        public string SizeDesc
+        {
+            set { _sizedesc = value; }
+            get { return _sizedesc; }
+        }
+        private string _mobilesizedesc = "";
+        /// <summary>
+        /// 移动端商品尺码描述
+        /// </summary>
+        public string MobileSizeDesc
+        {
+            set { _mobilesizedesc = value; }
+            get { return _mobilesizedesc; }
+        }
 
         public string GetImage(int index)
         {
@@ -411,6 +484,21 @@ namespace SearchBox.Models
             else
             {
                 return "";
+            }
+        }
+        /// <summary>
+        /// 获取毛利
+        /// </summary>
+        /// <returns></returns>
+        public static decimal GetMargin(decimal SalePrice, decimal CostPrice, double SaleDiscount, double GuardDiscount, double CablePoint)
+        {
+            if (SaleDiscount > GuardDiscount)
+            {
+                return SalePrice - CostPrice > 0 ? SalePrice - CostPrice : 0;
+            }
+            else
+            {
+                return SalePrice * (decimal)CablePoint;
             }
         }
     }

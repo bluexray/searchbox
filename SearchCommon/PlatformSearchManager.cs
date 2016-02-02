@@ -10,6 +10,7 @@ using Nest.DSL;
 using Nest.Domain;
 using Elasticsearch.Net;
 using SearchBox.Models;
+using System.Text.RegularExpressions;
 
 
 
@@ -17,7 +18,7 @@ namespace SearchCommon
 {
     public static class PlatformSearchManager
     {
-
+        private static double MINSCORE = double.Parse(ConfigurationManager.AppSettings["MinScore"].ToString());
         private static string host = ConfigurationManager.AppSettings["SearchBox"].ToString();
 
         /// <summary>
@@ -143,149 +144,149 @@ namespace SearchCommon
             // int[] numbers = { 4, 5, 6, 1, 2, 3, -2, -1, 0 };
 
 
-            total = client.Count<ProductInfoExt>(s => 
-            {
-                var search = s.Index(IndexName)
-                    .AllTypes()
-                    .Analyzer("ik")
-                    .Query(q =>
-                    {
-                        QueryContainer query = null;
-                        if (startprice != null)
-                        {
-                            query &= q.Range(m => m
-                                        .OnField(f => f.Shopprice)
-                                        .GreaterOrEquals(startprice)
-                                        .Lower(endprice));
-                        }
+            //total = client.Count<ProductInfoExt>(s => 
+            //{
+            //    var search = s.Index(IndexName)
+            //        .AllTypes()
+            //        .Analyzer("ik")
+            //        .Query(q =>
+            //        {
+            //            QueryContainer query = null;
+            //            if (startprice != null)
+            //            {
+            //                query &= q.Range(m => m
+            //                            .OnField(f => f.Shopprice)
+            //                            .GreaterOrEquals(startprice)
+            //                            .Lower(endprice));
+            //            }
 
 
-                        if (brands != null && brands.Length > 0)
-                        {
-                            foreach (var item in brands)
-                            {
-                                query = query || q.Term("brandid", item);
-                            }
-                        }
+            //            if (brands != null && brands.Length > 0)
+            //            {
+            //                foreach (var item in brands)
+            //                {
+            //                    query = query || q.Term("brandid", item);
+            //                }
+            //            }
 
-                        if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
-                        {
-                            QueryContainer q1 = null;
-                            foreach (var item in catePath)
-                            {
-                                if (!string.IsNullOrEmpty(item))
-                                {
-                                    q1 |= q.Prefix("catePath", item);
+            //            if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
+            //            {
+            //                QueryContainer q1 = null;
+            //                foreach (var item in catePath)
+            //                {
+            //                    if (!string.IsNullOrEmpty(item))
+            //                    {
+            //                        q1 |= q.Prefix("catePath", item);
 
-                                }
-                            }
-                            query &= q1;
-                        }
-
-
-
-                        //if (cateid != 0)
-                        //{
-                        //    query &= q.Term("cateid", cateid);
-                        //}
-
-                        if (OnlyStock == 1)
-                        {
-                            query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(FilterAttr))
-                        {
-                            foreach (string item in FilterAttr.Split('|'))
-                            {
-                                QueryContainer q1 = null;
-                                foreach (string attr in item.Split(','))
-                                {
-                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
-                                }
-                                query &= q1;
-                            }
-                        }
-
-                        query &= q.QueryString(qs => qs.Query(keyword));
-
-                        return query;
-                    });
-                return search;
-            }).Count;
-
-            attrList = client.Search<ProductInfoExt>(s =>
-            {
-                var search = s.Index(IndexName)
-                    .AllTypes()
-                    .Analyzer("ik")
-                    .Source(f => f.Include("Attr"))
-                    .Size(int.MaxValue)
-                    .Query(q =>
-                    {
-                        QueryContainer query = null;
-                        if (startprice != null)
-                        {
-                            query &= q.Range(m => m
-                                        .OnField(f => f.Shopprice)
-                                        .GreaterOrEquals(startprice)
-                                        .Lower(endprice));
-                        }
+            //                    }
+            //                }
+            //                query &= q1;
+            //            }
 
 
-                        if (brands != null && brands.Length > 0)
-                        {
-                            foreach (var item in brands)
-                            {
-                                query = query || q.Term("brandid", item);
-                            }
-                        }
+
+            //            //if (cateid != 0)
+            //            //{
+            //            //    query &= q.Term("cateid", cateid);
+            //            //}
+
+            //            if (OnlyStock == 1)
+            //            {
+            //                query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+            //            }
+
+            //            if (!string.IsNullOrWhiteSpace(FilterAttr))
+            //            {
+            //                foreach (string item in FilterAttr.Split('|'))
+            //                {
+            //                    QueryContainer q1 = null;
+            //                    foreach (string attr in item.Split(','))
+            //                    {
+            //                        q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
+            //                    }
+            //                    query &= q1;
+            //                }
+            //            }
+
+            //            query &= q.QueryString(qs => qs.Query(keyword));
+
+            //            return query;
+            //        });
+            //    return search.MinScore(MINSCORE);
+            //}).Count;
+
+            //attrList = client.Search<ProductInfoExt>(s =>
+            //{
+            //    var search = s.Index(IndexName)
+            //        .AllTypes()
+            //        .Analyzer("ik")
+            //        .Source(f => f.Include("Attr"))
+            //        .Size(int.MaxValue)
+            //        .Query(q =>
+            //        {
+            //            QueryContainer query = null;
+            //            if (startprice != null)
+            //            {
+            //                query &= q.Range(m => m
+            //                            .OnField(f => f.Shopprice)
+            //                            .GreaterOrEquals(startprice)
+            //                            .Lower(endprice));
+            //            }
 
 
-                        if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
-                        {
-                            QueryContainer q1 = null;
-                            foreach (var item in catePath)
-                            {
-                                if (!string.IsNullOrEmpty(item))
-                                {
-                                    q1 |= q.Prefix("catePath", item);
-
-                                }
-                            }
-                            query &= q1;
-                        }
+            //            if (brands != null && brands.Length > 0)
+            //            {
+            //                foreach (var item in brands)
+            //                {
+            //                    query = query || q.Term("brandid", item);
+            //                }
+            //            }
 
 
-                        //if (cateid != 0)
-                        //{
-                        //    query &= q.Term("cateid", cateid);
-                        //}
+            //            if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
+            //            {
+            //                QueryContainer q1 = null;
+            //                foreach (var item in catePath)
+            //                {
+            //                    if (!string.IsNullOrEmpty(item))
+            //                    {
+            //                        q1 |= q.Prefix("catePath", item);
 
-                        if (OnlyStock == 1)
-                        {
-                            query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
-                        }
+            //                    }
+            //                }
+            //                query &= q1;
+            //            }
 
-                        if (!string.IsNullOrWhiteSpace(FilterAttr))
-                        {
-                            foreach (string item in FilterAttr.Split('|'))
-                            {
-                                QueryContainer q1 = null;
-                                foreach (string attr in item.Split(','))
-                                {
-                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
-                                }
-                                query &= q1;
-                            }
-                        }
 
-                        query &= q.QueryString(qs => qs.Query(keyword));
+            //            //if (cateid != 0)
+            //            //{
+            //            //    query &= q.Term("cateid", cateid);
+            //            //}
 
-                        return query;
-                    });
-                return search;
-            }).Documents.Where(a => !string.IsNullOrWhiteSpace(a.Attr)).Select(a => a.Attr).Distinct().SelectMany(a => a.Split(',')).Distinct().Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
+            //            if (OnlyStock == 1)
+            //            {
+            //                query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+            //            }
+
+            //            if (!string.IsNullOrWhiteSpace(FilterAttr))
+            //            {
+            //                foreach (string item in FilterAttr.Split('|'))
+            //                {
+            //                    QueryContainer q1 = null;
+            //                    foreach (string attr in item.Split(','))
+            //                    {
+            //                        q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
+            //                    }
+            //                    query &= q1;
+            //                }
+            //            }
+
+            //            query &= q.QueryString(qs => qs.Query(keyword));
+
+            //            return query;
+            //        });
+            //    return search.MinScore(MINSCORE);
+            //}).Documents.Where(a => !string.IsNullOrWhiteSpace(a.Attr)).Select(a => a.Attr).Distinct().SelectMany(a => a.Split(',')).Distinct().Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
 
 
 
@@ -301,7 +302,7 @@ namespace SearchCommon
                         if (startprice != null)
                         {
                             query &= q.Range(m => m
-                                        .OnField(f => f.Shopprice)
+                                        .OnField(f => f.ShopPrice)
                                         .GreaterOrEquals(startprice)
                                         .Lower(endprice));
                         }
@@ -309,10 +310,16 @@ namespace SearchCommon
 
                         if (brands != null && brands.Length > 0)
                         {
+                            QueryContainer q1 = null;
                             foreach (var item in brands)
                             {
-                                query = query || q.Term("brandid", item);
+                                if (!string.IsNullOrEmpty(item))
+                                {
+                                    q1 |= q.Term("brandid", item);
+
+                                }
                             }
+                            query &= q1;
                         }
 
 
@@ -371,8 +378,10 @@ namespace SearchCommon
                         search = search.SortDescending(SortColumn);
                     }
                 }
-                return search;
+                return search.MinScore(MINSCORE);
             });
+            total = result.Total;
+            attrList = result.Documents.Where(a => !string.IsNullOrWhiteSpace(a.Attr)).Select(a => a.Attr).Distinct().SelectMany(a => Regex.Split(a, "},", RegexOptions.IgnoreCase).Where(a1 => !string.IsNullOrWhiteSpace(a1)).Select(b => b + "}")).Distinct().Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
             return result.Documents;
 
             //var list = new List<ProductInfoExt>();
@@ -425,7 +434,7 @@ namespace SearchCommon
                              if (startprice != null)
                              {
                                  query &= q.Range(m => m
-                                             .OnField(f => f.Shopprice)
+                                             .OnField(f => f.ShopPrice)
                                              .GreaterOrEquals(startprice)
                                              .Lower(endprice));
                              }
@@ -433,10 +442,16 @@ namespace SearchCommon
 
                              if (brands != null && brands.Length > 0)
                              {
+                                 QueryContainer q1 = null;
                                  foreach (var item in brands)
                                  {
-                                     query = query || q.Term("brandid", item);
+                                     if (!string.IsNullOrEmpty(item))
+                                     {
+                                         q1 |= q.Term("brandid", item);
+
+                                     }
                                  }
+                                 query &= q1;
                              }
 
                              if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
@@ -446,7 +461,7 @@ namespace SearchCommon
                                  {
                                      if (!string.IsNullOrEmpty(item))
                                      {
-                                         q1 |= q.Prefix("catePath", item.Split(',')[0]);
+                                         q1 |= q.Prefix("catePath", item);
 
                                      }
                                  }
@@ -461,7 +476,7 @@ namespace SearchCommon
                              query &= q.QueryString(qs => qs.Query(keyword));
 
                              return query;
-                         }));
+                         }).MinScore(MINSCORE));
             return result.Documents.Select(p => p.CateId).Distinct();
         }
 
@@ -483,7 +498,7 @@ namespace SearchCommon
                              if (startprice != null)
                              {
                                  query &= q.Range(m => m
-                                           .OnField(f => f.Shopprice)
+                                           .OnField(f => f.ShopPrice)
                                            .GreaterOrEquals(startprice)
                                            .Lower(endprice));
                              }
@@ -509,7 +524,7 @@ namespace SearchCommon
 
                              query &= q.QueryString(qs => qs.Query(keyword));
                              return query;
-                         }));
+                         }).MinScore(MINSCORE));
 
             return result.Documents.Select(p => p.BrandId).Distinct();
         }
