@@ -137,7 +137,7 @@ namespace SearchCommon
 
 
         //根据条件搜索
-        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, out List<string> attrList, int? startprice = null, int? endprice = null, string[] brands = null, string[] catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr = "")
+        public static IEnumerable<ProductInfoExt> SearchBySyntax(string keyword, out long total, out List<int> cateIds, out List<int> brandIds, out List<string> attrList, int? startprice = null, int? endprice = null, string[] brands = null, string[] catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr = "")
         {
             var client = GetClient();
 
@@ -302,9 +302,9 @@ namespace SearchCommon
                         if (startprice != null)
                         {
                             query &= q.Range(m => m
-                                        .OnField(f => f.ShopPrice)
+                                        .OnField("shopprice")
                                         .GreaterOrEquals(startprice)
-                                        .Lower(endprice));
+                                        .Lower(endprice).Boost(0));
                         }
 
 
@@ -315,7 +315,7 @@ namespace SearchCommon
                             {
                                 if (!string.IsNullOrEmpty(item))
                                 {
-                                    q1 |= q.Term("brandid", item);
+                                    q1 |= q.Term("brandid", item,0);
 
                                 }
                             }
@@ -330,7 +330,7 @@ namespace SearchCommon
                             {
                                 if (!string.IsNullOrEmpty(item))
                                 {
-                                    q1 |= q.Prefix("catePath", item);
+                                    q1 |= q.Prefix("catePath", item,0);
 
                                 }
                             }
@@ -345,7 +345,7 @@ namespace SearchCommon
 
                         if (OnlyStock == 1)
                         {
-                            query &= q.Range(m => m.OnField(f => f.Number).Greater(0));
+                            query &= q.Range(m => m.OnField("number").Greater(0).Boost(0));
                         }
                         if (!string.IsNullOrWhiteSpace(FilterAttr))
                         {
@@ -354,18 +354,18 @@ namespace SearchCommon
                                 QueryContainer q1 = null;
                                 foreach (string attr in item.Split(','))
                                 {
-                                    q1 |= (q.Term("Attr", attr.Split('_')[0]) && q.Term("Attr", attr.Split('_')[1]));
+                                    q1 |= (q.Term("Attr", attr.Split('_')[0],0) && q.Term("Attr", attr.Split('_')[1],0));
                                 }
                                 query &= q1;
                             }
                         }
-                        query &= q.QueryString(qs => qs.Query(keyword));
+                        query &= q.QueryString(qs => qs.Query(keyword).Boost(15));
 
                         return query;
                     });
 
                 //分页
-                search = search.From((page-1) * _pageSize).Size(_pageSize);
+                search = search.From(0).Size(int.MaxValue);
                 //排序
                 if (!string.IsNullOrWhiteSpace(SortDirection) && !string.IsNullOrWhiteSpace(SortColumn))
                 {
@@ -381,8 +381,10 @@ namespace SearchCommon
                 return search.MinScore(MINSCORE);
             });
             total = result.Total;
+            cateIds = result.Documents.Select(a => a.CateId).Distinct().ToList();
+            brandIds = result.Documents.Select(a => a.BrandId).Distinct().ToList();
             attrList = result.Documents.Where(a => !string.IsNullOrWhiteSpace(a.Attr)).Select(a => a.Attr).Distinct().SelectMany(a => Regex.Split(a, "},", RegexOptions.IgnoreCase).Where(a1 => !string.IsNullOrWhiteSpace(a1)).Select(b => b + "}")).Distinct().Where(a => !string.IsNullOrWhiteSpace(a)).ToList();
-            return result.Documents;
+            return result.Documents.Skip((page - 1) * _pageSize).Take(_pageSize);
 
             //var list = new List<ProductInfoExt>();
 

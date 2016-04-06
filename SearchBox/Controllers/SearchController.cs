@@ -31,8 +31,7 @@ namespace SearchBox.Controllers
                     catepaths = catePath.Split('|');
                 }
 
-                long total = 0;
-                List<string> attrlist = new List<string>();
+                
 
                 //return  PlatformSearchManager.SearchFulltext("电视", 0);
                 //return  PlatformSearchManager.SearchProudct("头层牛皮凉鞋", 1);
@@ -42,11 +41,16 @@ namespace SearchBox.Controllers
 
                 //return PlatformSearchManager.SearchBrands("头层牛皮凉鞋");
                 //SearchBySyntax(string keyword, out long total, int? startprice = null, int? endprice = null, string[] brands = null, string catePath = null, int cateid = 0, int page = 0, int _pageSize = 50, string SortColumn = "", string SortDirection = "", int OnlyStock = 0, string FilterAttr="")
+                long total = 0;
+                List<string> attrlist = new List<string>();
+                List<int> cateIds = new List<int>();
+                List<int> brandIds = new List<int>();
+                var productList = PlatformSearchManager.SearchBySyntax(keyword, out total,out cateIds,out brandIds,out attrlist, startprice, endprice, arry, catepaths, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr);
                 var rs = new
                 {
-                    brandids = PlatformSearchManager.SearchBrands(keyword, startprice, endprice, catepaths),
-                    cateids = PlatformSearchManager.SearchCateIds(keyword, arry, startprice, endprice, catepaths),
-                    list = PlatformSearchManager.SearchBySyntax(keyword, out total, out attrlist, startprice, endprice, arry, catepaths, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr),
+                    brandids = brandIds,
+                    cateids = cateIds,
+                    list = productList,
                     total = total,
                     attrlist = attrlist
                 };
@@ -95,11 +99,12 @@ namespace SearchBox.Controllers
         //}
 
 
-        //[HttpGet]
-        //public void SearchSuggest(string keyword)
-        //{
-        //    var s = PlatformSearchManager.SearchSuggest(keyword);
-        //}
+        [HttpGet]
+        public List<string> SearchSuggest(string keyword)
+        {
+            var s = PlatformSearchManager.SearchSuggest(keyword);
+            return s;
+        }
 
     }
 }
