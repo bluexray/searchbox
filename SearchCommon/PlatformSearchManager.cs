@@ -26,6 +26,10 @@ namespace SearchCommon
         /// </summary>
         private static string IndexName = ConfigurationManager.AppSettings["IndexName"].ToString(); //aliax name
 
+        private static string SuggestIndexName = ConfigurationManager.AppSettings["SuggestIndexName"].ToString();
+
+        private static int MaxSearchCount = int.Parse(ConfigurationManager.AppSettings["MaxSearchCount"].ToString());
+
         /// <summary>
         /// Defaults for paging
         /// </summary>
@@ -64,7 +68,17 @@ namespace SearchCommon
 
             return new ElasticClient(settings);
         }
+        private static ElasticClient GetClient(string indexname)
+        {
+            var node = new Uri(host);
 
+            var settings = new ConnectionSettings(
+                node,
+                defaultIndex: indexname
+            );
+
+            return new ElasticClient(settings);
+        }
 
         public static void ResetIndex()
         {
@@ -146,72 +160,79 @@ namespace SearchCommon
                     .Query(q =>
                     {
                         QueryContainer query = null;
-                        if (startprice != null)
-                        {
-                            query &= q.Range(m => m
-                                        .OnField("shopprice")
-                                        .GreaterOrEquals(startprice)
-                                        .Lower(endprice).Boost(0));
-                        }
-                        if (brands != null && brands.Length > 0)
-                        {
-                            QueryContainer q1 = null;
-                            foreach (var item in brands)
-                            {
-                                if (!string.IsNullOrEmpty(item))
-                                {
-                                    q1 |= q.Term("brandid", item,0);
-
-                                }
-                            }
-                            query &= q1;
-                        }
-                        if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
-                        {
-                            QueryContainer q1 = null;
-                            foreach (var item in catePath)
-                            {
-                                if (!string.IsNullOrEmpty(item))
-                                {
-                                    q1 |= q.Prefix("catePath", item,0);
-
-                                }
-                            }
-                            query &= q1;
-                        }
-                        if (OnlyStock == 1)
-                        {
-                            query &= q.Range(m => m.OnField("number").Greater(0).Boost(0));
-                        }
-                        if (!string.IsNullOrWhiteSpace(FilterAttr))
-                        {
-                            foreach (string item in FilterAttr.Split('|'))
-                            {
-                                QueryContainer q1 = null;
-                                foreach (string attr in item.Split(','))
-                                {
-                                    q1 |= (q.Term("Attr", attr.Split('_')[0],0) && q.Term("Attr", attr.Split('_')[1],0));
-                                }
-                                query &= q1;
-                            }
-                        }
+                        
                         query &= q.QueryString(qs => qs.Query(keyword).Boost(15));
 
+                        query &= q.Filtered(fd => fd.Filter(f =>
+                        {
+                            FilterContainer filter = null;
+                            if (startprice != null)
+                            {
+                                filter &= f.Range(m => m
+                                            .OnField("shopprice")
+                                            .GreaterOrEquals(startprice)
+                                            .Lower(endprice));
+                            }
+                            if (brands != null && brands.Length > 0)
+                            {
+                                FilterContainer q1 = null;
+                                foreach (var item in brands)
+                                {
+                                    if (!string.IsNullOrEmpty(item))
+                                    {
+                                        q1 |= f.Term("brandid", item);
+
+                                    }
+                                }
+                                filter &= q1;
+                            }
+                            if (catePath != null && catePath.Where(a => !string.IsNullOrEmpty(a)).Count() > 0)
+                            {
+                                FilterContainer q1 = null;
+                                foreach (var item in catePath)
+                                {
+                                    if (!string.IsNullOrEmpty(item))
+                                    {
+                                        q1 |= f.Prefix("catePath", item);
+
+                                    }
+                                }
+                                filter &= q1;
+                            }
+                            if (OnlyStock == 1)
+                            {
+                                filter &= f.Range(m => m.OnField("number").Greater(0));
+                            }
+                            if (!string.IsNullOrWhiteSpace(FilterAttr))
+                            {
+                                foreach (string item in FilterAttr.Split('|'))
+                                {
+                                    FilterContainer q1 = null;
+                                    foreach (string attr in item.Split(','))
+                                    {
+                                        //q1 |= (f.Term("Attr", attr.Split('_')[0]) && f.Term("Attr", attr.Split('_')[1]));
+                                        q1 |= f.Query(a => a.QueryString(aq => aq.OnFields(new List<string>() { "attr" }).Query("\"" + attr.Replace("_", ":") + "\"")));
+                                    }
+                                    filter &= q1;
+                                }
+                            }
+                            return filter;
+                        }));
                         return query;
                     });
 
                 //分页
-                search = search.From(0).Size(int.MaxValue);
+                search = search.From(0).Size(MaxSearchCount);
                 //排序
                 if (!string.IsNullOrWhiteSpace(SortDirection) && !string.IsNullOrWhiteSpace(SortColumn))
                 {
                     if (SortDirection == "ASC")
                     {
-                        search = search.SortAscending(SortColumn);
+                        search = search.SortMulti(a => a.OnField(SortColumn).Ascending(), a => a.OnField("pid").Descending());
                     }
                     else
                     {
-                        search = search.SortDescending(SortColumn);
+                        search = search.SortMulti(a => a.OnField(SortColumn).Descending(), a => a.OnField("pid").Descending());
                     }
                 }
                 return search.MinScore(MINSCORE);
@@ -359,65 +380,25 @@ namespace SearchCommon
 
         public static List<string> SearchSuggest(string keyword)
         {
-
-            var client = GetClient();
-
-
-            // depending on your map --> index --> query configuraion there are different methods to get suggestions:
-            //
-            // a.) my favourite
-            //
-            //SearchDescriptor<BlogArticle> descriptor = new SearchDescriptor<BlogArticle>();
-            //descriptor = descriptor.SuggestCompletion("suggest", c => c.OnField("title").Text(SearchTerm));
-
-            //var ... = GetClient().Search<BlogArticle>(s => descriptor);
-
-            // b.) common
-            //
-            var r = GetClient().Suggest<ProductInfoExt>(s => s.Phrase("my-suggest", f => f.OnField("name")
-                                                                                    .GramSize(1)
-                                                                                    .Size(5)
-                                                                                    .MaxErrors((decimal)0.5)
-                                                                                    .DirectGenerator(g => g.MinWordLength(3)
-                                                                                                            .OnField("name")
-                                                                                                            .SuggestMode(SuggestMode.Always))
+            var client = GetClient(SuggestIndexName);
+            var r = client.Suggest<object>(s => s.Completion("my-suggest", f => f.OnField("keywords")
+                                                                                    .Size(10)
+                                                                                    //.Fuzzy(a=>a.Fuzziness(1))
                                                                                     .Text(keyword)));
 
-
-            var rs = GetClient().Suggest<ProductInfoExt>(m => m.Term("suggest-test", q => q.OnField("name").Size(10).Text(keyword)));
-
-
-           
-
-
             var list = new List<string>();
-
-
-            var gg = rs.Suggestions["suggest-test"].First().Options;
-
-
-            var sugg = r.Suggestions["my-suggest"].First().Options;
-
-
-            if (sugg.Count() > 0)
+            if (r.Suggestions.ContainsKey("my-suggest"))
             {
-                foreach (SuggestOption opt in sugg)
+                var sugg = r.Suggestions["my-suggest"].First().Options;
+                if (sugg.Count() > 0)
                 {
-                    list.Add(opt.Text);
+                    foreach (SuggestOption opt in sugg)
+                    {
+                        list.Add(opt.Text);
+                    }
                 }
             }
-
             return list;
-
-
-            //List<String> suggestions = new SuggestRequestBuilder()
-            //    .field("content")//查询field
-            //    .term(q)//提示关键字
-            //    .size(n)//返回结果数
-            //    .similarity(0.5f)//相似度
-            //    .execute().actionGet().suggestions();
-
-            //return null;
         }
     }
 }
