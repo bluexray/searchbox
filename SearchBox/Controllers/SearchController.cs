@@ -18,11 +18,11 @@ namespace SearchBox.Controllers
             try
             {
                 Utils.WriteLogFile(Request.RequestUri.ToString());
-                string[] arry = null;
+                string[] brandids = null;
 
                 if (brands != null)
                 {
-                    arry = brands.Split(',');
+                    brandids = brands.Split(',');
                 }
 
                 string[] catepaths = null;
@@ -45,7 +45,7 @@ namespace SearchBox.Controllers
                 List<string> attrlist = new List<string>();
                 List<int> cateIds = new List<int>();
                 List<int> brandIds = new List<int>();
-                var productList = PlatformSearchManager.SearchBySyntax(keyword, out total,out cateIds,out brandIds,out attrlist, startprice, endprice, arry, catepaths, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr);
+                var productList = PlatformSearchManager.SearchBySyntax(keyword, out total,out cateIds,out brandIds,out attrlist, startprice, endprice, brandids, catepaths, cateid, page, pageSize, SortColumn, SortDirection, OnlyStock, FilterAttr);
                 var rs = new
                 {
                     brandids = brandIds,
@@ -102,8 +102,16 @@ namespace SearchBox.Controllers
         [HttpGet]
         public List<string> SearchSuggest(string keyword)
         {
-            var s = PlatformSearchManager.SearchSuggest(keyword);
-            return s;
+            List<string> list = new List<string>();
+            var sugg = PlatformSearchManager.SearchSuggest(keyword);
+            if (sugg != null && sugg.Count() > 0)
+            {
+                foreach (var opt in sugg)
+                {
+                    list.Add(opt.Text);
+                }
+            }
+            return list;
         }
 
     }
