@@ -217,6 +217,14 @@ namespace SearchBox.Models
             get { return _mobileshowimg; }
         }
         /// <summary>
+        /// 移动端商品列表图
+        /// </summary>
+        public string MobileListImg
+        {
+            set;
+            get;
+        }
+        /// <summary>
         /// 商品颜色图片
         /// </summary>
         public string ColorImg
